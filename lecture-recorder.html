@@ -311,6 +311,63 @@
     line-height: 1.7;
     display: none;
   }
+
+  /* ── Settings / Whisper ── */
+  .whisper-area {
+    background: var(--surface);
+    border: 0.5px solid rgba(96,165,250,0.35);
+    border-radius: 16px;
+    padding: 14px 16px;
+    min-height: 120px;
+    max-height: 300px;
+    overflow-y: auto;
+    font-size: 15px;
+    line-height: 1.8;
+  }
+  .whisper-area:empty::before {
+    content: '高精度モードがONのとき、Whisperで変換した確定版がここに表示されます';
+    color: var(--text3);
+    font-size: 13px;
+  }
+  details.settings {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 16px;
+  }
+  details.settings summary {
+    font-size: 13px; font-weight: 600; color: var(--text2); cursor: pointer;
+  }
+  .field { margin-top: 14px; }
+  .field label {
+    display: block; font-size: 12px; font-weight: 600;
+    color: var(--text2); margin-bottom: 6px;
+  }
+  .field .hint2 { font-size: 11px; color: var(--text3); line-height: 1.6; margin-top: 5px; }
+  .text-input, .text-area {
+    width: 100%;
+    background: var(--surface2);
+    border: 0.5px solid var(--border2);
+    border-radius: 10px;
+    padding: 9px 11px;
+    font-size: 13px;
+    color: var(--text);
+    font-family: inherit;
+    outline: none;
+  }
+  .text-area { resize: vertical; line-height: 1.6; }
+  .check-row {
+    display: flex; gap: 9px; align-items: flex-start;
+    margin-top: 14px; font-size: 13px; line-height: 1.6; cursor: pointer;
+  }
+  .check-row input { margin-top: 3px; accent-color: var(--red); width: 16px; height: 16px; flex-shrink: 0; }
+  .btn-wide {
+    width: 100%; height: 46px; margin-top: 16px;
+    border-radius: 12px; border: 0.5px solid var(--border2);
+    background: var(--surface2); color: var(--text);
+    font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit;
+  }
+  .btn-wide:disabled { opacity: 0.3; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -357,11 +414,62 @@
     <div class="transcript-area" id="transcript"></div>
   </div>
 
+  <div class="section" id="whisper-section" style="display:none">
+    <div class="sec-head">
+      <span class="sec-title">確定版（Whisper・高精度）</span>
+      <button class="icon-btn" id="btn-copy-w">コピー</button>
+    </div>
+    <div class="whisper-area" id="whisper-transcript"></div>
+  </div>
+
   <div class="section">
     <div class="sec-head">
       <span class="sec-title">メモ</span>
     </div>
     <textarea class="note-area" id="notes" placeholder="補足メモを自由に入力..."></textarea>
+  </div>
+
+  <div class="section">
+    <details class="settings" id="settings">
+      <summary>⚙️ 精度向上の設定</summary>
+
+      <label class="check-row">
+        <input type="checkbox" id="opt-whisper">
+        <span><strong>高精度モード</strong>：録音を30秒ごとに Whisper (large-v3) で変換し直し、「確定版」を作る。リアルタイム表示は今まで通り Web Speech API。</span>
+      </label>
+
+      <div class="field">
+        <label for="api-key">Groq APIキー（無料枠あり）</label>
+        <input class="text-input" type="password" id="api-key" placeholder="gsk_..." autocomplete="off">
+        <div class="hint2">キーはこの端末の localStorage にだけ保存されます。公開サイトで使う場合は下のプロキシURLを使ってください。ブラウザから Groq に直接つながらない（CORS）環境では、音声ダウンロード＋プロキシ経由に切り替わります。</div>
+      </div>
+
+      <div class="field">
+        <label for="proxy-url">プロキシURL（任意・推奨）</label>
+        <input class="text-input" type="url" id="proxy-url" placeholder="https://your-worker.example.workers.dev/">
+        <div class="hint2">同梱の Cloudflare Worker を使う場合のURL。設定するとAPIキーをブラウザに置かずに済みます。</div>
+      </div>
+
+      <div class="field">
+        <label for="terms">講義用語（Whisperへのヒント）</label>
+        <textarea class="text-area" id="terms" rows="3" placeholder="固有値分解, 特異値分解, ラグランジュ未定乗数法, 担当教員名, ..."></textarea>
+        <div class="hint2">専門用語・人名・略語をカンマ区切りで。Whisper の prompt として渡します。</div>
+      </div>
+
+      <div class="field">
+        <label for="fixes">誤認識の置換辞書（ライブ表示にも適用）</label>
+        <textarea class="text-area" id="fixes" rows="3" placeholder="こゆうち => 固有値&#10;とくいち => 特異値"></textarea>
+        <div class="hint2">1行に1つ、「誤り =&gt; 正解」の形式。よくある誤認識を登録するほど効きます。</div>
+      </div>
+
+      <label class="check-row">
+        <input type="checkbox" id="opt-rawmic" checked>
+        <span>録音マイクの加工（エコー／ノイズ抑制／自動ゲイン）を切る。講義の声が潰れにくくなります ※Web Speech API側のマイクにはブラウザ仕様上アクセスできないため、これは録音音声（Whisper用）に効きます</span>
+      </label>
+
+      <button class="btn-wide" id="btn-audio" disabled>🎧 録音音声をダウンロード</button>
+      <div class="hint2" style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:8px">従来版は音声を保存していなかったため、聞き漏らした部分は復元できませんでした。この版は音声も残すので、あとから再変換できます。文字起こしとメモは自動保存されます。</div>
+    </details>
   </div>
 
 </div>
@@ -383,10 +491,88 @@
   let rec = null;
   let isRec = false, isPaused = false;
   let finalText = '';
+  let whisperText = '';
   let lang = 'ja-JP';
   let secs = 0, timerIv = null;
   let bars = [], animId = null;
   let audioCtx = null, analyser = null, src = null, micStream = null;
+
+  // ── Accuracy helpers ──────────────────────
+  const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  let lastFinal = '', lastFinalAt = 0, restartTimer = null;
+
+  function parseFixes() {
+    const out = [];
+    $('fixes').value.split('\n').forEach(line => {
+      const m = line.split(/=>|→|->/);
+      if (m.length === 2 && m[0].trim()) out.push([m[0].trim(), m[1].trim()]);
+    });
+    return out;
+  }
+  function applyFixes(t) {
+    return parseFixes().reduce((s, [from, to]) => s.split(from).join(to), t);
+  }
+
+  function saveState() {
+    try {
+      localStorage.setItem('lr2-state', JSON.stringify({
+        finalText, whisperText, notes: $('notes').value, lang
+      }));
+      localStorage.setItem('lr2-settings', JSON.stringify({
+        key: $('api-key').value, proxy: $('proxy-url').value,
+        terms: $('terms').value, fixes: $('fixes').value,
+        whisper: $('opt-whisper').checked, rawmic: $('opt-rawmic').checked
+      }));
+    } catch(_) {}
+  }
+  function restoreState() {
+    try {
+      const st = JSON.parse(localStorage.getItem('lr2-state') || 'null');
+      if (st) {
+        finalText = st.finalText || '';
+        whisperText = st.whisperText || '';
+        $('notes').value = st.notes || '';
+        if (st.lang) {
+          lang = st.lang;
+          document.querySelectorAll('.lang-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.lang === lang));
+        }
+      }
+      const se = JSON.parse(localStorage.getItem('lr2-settings') || 'null');
+      if (se) {
+        $('api-key').value = se.key || '';
+        $('proxy-url').value = se.proxy || '';
+        $('terms').value = se.terms || '';
+        $('fixes').value = se.fixes || '';
+        $('opt-whisper').checked = !!se.whisper;
+        $('opt-rawmic').checked = se.rawmic !== false;
+      }
+    } catch(_) {}
+    renderTranscript('');
+    renderWhisper();
+  }
+  ['api-key','proxy-url','terms','fixes'].forEach(id =>
+    $(id).addEventListener('change', saveState));
+  ['opt-whisper','opt-rawmic'].forEach(id =>
+    $(id).addEventListener('change', () => { saveState(); renderWhisper(); }));
+  $('notes').addEventListener('input', saveState);
+
+  function renderTranscript(interim) {
+    $('transcript').innerHTML =
+      esc(finalText).replace(/\n/g,'<br>') +
+      (interim ? `<span class="interim">${esc(interim)}</span>` : '');
+    const ta = $('transcript');
+    ta.scrollTop = ta.scrollHeight;
+    if (finalText) $('btn-clear').disabled = false;
+  }
+  function renderWhisper() {
+    const show = $('opt-whisper').checked || whisperText;
+    $('whisper-section').style.display = show ? '' : 'none';
+    $('whisper-transcript').innerHTML = esc(whisperText).replace(/\n/g,'<br>');
+    const ta = $('whisper-transcript');
+    ta.scrollTop = ta.scrollHeight;
+  }
 
   // ── Waveform setup ──────────────────────
   function buildBars() {
@@ -424,12 +610,21 @@
 
   async function startViz() {
     try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      src = audioCtx.createMediaStreamSource(micStream);
-      src.connect(analyser);
+      if (!micStream) {
+        // このストリームは波形表示と「録音（Whisper用）」で共用する。
+        // Web Speech API は独自にマイクを掴むため、ここの制約は認識側には効かない。
+        const raw = $('opt-rawmic').checked;
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: raw
+          ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+          : true });
+      }
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        src = audioCtx.createMediaStreamSource(micStream);
+        src.connect(analyser);
+      }
       buildBars();
       drawBars();
     } catch(e) { /* マイク拒否など */ }
@@ -504,6 +699,119 @@
     }
   }
 
+  // ── Audio recording + Whisper (high-accuracy pass) ──
+  let archiveChunks = [], archiveRec = null;
+  let segmentRec = null, segmentTimer = null;
+  let segmentQueue = Promise.resolve(), pendingSegs = 0;
+  let audioBlobUrl = null;
+
+  function pickMime() {
+    if (!window.MediaRecorder) return '';
+    return ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus']
+      .find(m => MediaRecorder.isTypeSupported(m)) || '';
+  }
+  function extFor(mime) {
+    if (mime.includes('mp4')) return 'm4a';
+    if (mime.includes('ogg')) return 'ogg';
+    return 'webm';
+  }
+  const whisperOn = () => $('opt-whisper').checked && ($('proxy-url').value.trim() || $('api-key').value.trim());
+
+  function startRecorders() {
+    if (!micStream || !window.MediaRecorder) return;
+    const mime = pickMime();
+    archiveChunks = [];
+    try {
+      archiveRec = new MediaRecorder(micStream, mime ? { mimeType: mime } : undefined);
+      archiveRec.ondataavailable = e => { if (e.data.size) archiveChunks.push(e.data); };
+      archiveRec.onstop = () => {
+        if (!archiveChunks.length) return;
+        if (audioBlobUrl) URL.revokeObjectURL(audioBlobUrl);
+        const blob = new Blob(archiveChunks, { type: mime || 'audio/webm' });
+        audioBlobUrl = URL.createObjectURL(blob);
+        $('btn-audio').disabled = false;
+        $('btn-audio').dataset.ext = extFor(blob.type);
+      };
+      archiveRec.start(1000);
+    } catch(_) { archiveRec = null; }
+    if (whisperOn()) startSegment();
+  }
+
+  function startSegment() {
+    if (!micStream || !isRec || isPaused) return;
+    const mime = pickMime();
+    const chunks = [];
+    try {
+      segmentRec = new MediaRecorder(micStream, mime ? { mimeType: mime } : undefined);
+    } catch(_) { return; }
+    const thisRec = segmentRec;
+    segmentRec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    segmentRec.onstop = () => {
+      const blob = new Blob(chunks, { type: mime || 'audio/webm' });
+      if (blob.size > 1000 && whisperOn()) queueSegment(blob);
+      // 再開後に古いレコーダの onstop で二重に開始しないよう、自分が現役のときだけ次へ
+      if (isRec && !isPaused && segmentRec === thisRec) startSegment();
+    };
+    segmentRec.start();
+    clearTimeout(segmentTimer);
+    segmentTimer = setTimeout(() => {
+      if (segmentRec && segmentRec.state === 'recording') segmentRec.stop();
+    }, 30000);
+  }
+
+  function queueSegment(blob) {
+    pendingSegs++;
+    renderWhisper();
+    segmentQueue = segmentQueue.then(() => transcribeSegment(blob)).finally(() => {
+      pendingSegs--;
+      if (!isRec && pendingSegs === 0) {
+        $('slabel').textContent = '変換完了';
+        $('ssub').textContent = '確定版（Whisper）が最新です';
+      }
+    });
+  }
+
+  async function transcribeSegment(blob) {
+    const proxy = $('proxy-url').value.trim();
+    const url = proxy || 'https://api.groq.com/openai/v1/audio/transcriptions';
+    const form = new FormData();
+    form.append('file', blob, 'segment.' + extFor(blob.type));
+    form.append('model', 'whisper-large-v3');
+    form.append('language', lang.slice(0, 2));
+    form.append('temperature', '0');
+    form.append('response_format', 'json');
+    const terms = $('terms').value.trim();
+    if (terms) form.append('prompt', terms.slice(0, 800));
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: proxy ? {} : { Authorization: 'Bearer ' + $('api-key').value.trim() },
+        body: form
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const text = applyFixes((data.text || '').trim());
+      if (text) {
+        whisperText += (whisperText && !/[。\n]$/.test(whisperText) ? ' ' : '') + text;
+        saveState();
+        renderWhisper();
+      }
+    } catch(e) {
+      showWarn('Whisper変換に失敗しました（' + e.message + '）。CORSで弾かれている場合はプロキシURLを設定してください。録音音声は保存されているので、あとから変換できます。');
+    }
+  }
+
+  $('btn-audio').addEventListener('click', () => {
+    if (!audioBlobUrl) return;
+    const a = document.createElement('a');
+    a.href = audioBlobUrl;
+    a.download = 'lecture-audio.' + ($('btn-audio').dataset.ext || 'webm');
+    a.click();
+  });
+  $('btn-copy-w').addEventListener('click', () => {
+    if (whisperText) navigator.clipboard.writeText(whisperText).catch(() => {});
+  });
+
   // ── Recognition ───────────────────────
   function makeRec() {
     if (!SR) return null;
@@ -517,27 +825,44 @@
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalText += t;
-        else interim += t;
+        if (e.results[i].isFinal) {
+          const now = Date.now();
+          const cleaned = applyFixes(t.trim());
+          // 再起動直後に直前の文が二重に返ることがあるので、短時間の完全重複は捨てる
+          if (cleaned && !(cleaned === lastFinal && now - lastFinalAt < 5000)) {
+            // 長い沈黙のあとは段落を分ける
+            if (finalText && now - lastFinalAt > 4000 && !finalText.endsWith('\n')) finalText += '\n';
+            finalText += cleaned;
+            lastFinal = cleaned;
+          }
+          lastFinalAt = now;
+        } else interim += t;
       }
-      $('transcript').innerHTML =
-        finalText.replace(/\n/g,'<br>') +
-        (interim ? `<span class="interim">${interim}</span>` : '');
-      const ta = $('transcript');
-      ta.scrollTop = ta.scrollHeight;
-      $('btn-clear').disabled = false;
+      renderTranscript(interim);
+      if (finalText) saveState();
     };
 
     r.onerror = e => {
-      if (e.error === 'not-allowed') {
+      // エラーを握りつぶすと「録れてないのに気づけない」ので、種類ごとに知らせる
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         showWarn('マイクへのアクセスが拒否されました。ブラウザの設定を確認してください。');
         stop();
+      } else if (e.error === 'network') {
+        showWarn('ネットワークエラーで認識が途切れました。再接続を試みます（この間の発話は確定版／録音音声で復元できる場合があります）。');
+      } else if (e.error === 'audio-capture') {
+        showWarn('マイクが見つかりませんでした。');
+        stop();
       }
+      // 'no-speech' / 'aborted' は onend 側の再起動に任せる
     };
 
     r.onend = () => {
       if (isRec && !isPaused) {
-        try { r.start(); } catch(_) {}
+        // 即時再起動は InvalidStateError や暴走ループになりやすいので少し間を置く
+        clearTimeout(restartTimer);
+        restartTimer = setTimeout(() => {
+          if (isRec && !isPaused && rec === r) { try { r.start(); } catch(_) {} }
+        }, 350);
       }
     };
     return r;
@@ -554,6 +879,9 @@
 
   async function start() {
     hideWarn();
+    if ($('opt-whisper').checked && !$('proxy-url').value.trim() && !$('api-key').value.trim()) {
+      showWarn('高精度モードがONですが、Groq APIキー（またはプロキシURL）が未設定です。ライブ文字起こしのみで録音します。');
+    }
     rec = makeRec();
     if (!rec) return;
     isRec = true; isPaused = false;
@@ -561,16 +889,29 @@
       rec.start();
     } catch(e) { showWarn('録音を開始できませんでした: ' + e.message); isRec = false; return; }
     await startViz();
+    startRecorders();
+    renderWhisper();
     setStatus('rec');
     startTimer();
   }
 
   function stop() {
     isRec = false; isPaused = false;
+    clearTimeout(restartTimer);
+    clearTimeout(segmentTimer);
+    if (segmentRec && segmentRec.state === 'recording') { try { segmentRec.stop(); } catch(_) {} }
+    if (archiveRec && archiveRec.state !== 'inactive') { try { archiveRec.stop(); } catch(_) {} }
+    segmentRec = null; archiveRec = null;
     if (rec) { rec.stop(); rec = null; }
     stopTimer();
-    stopViz();
+    // レコーダの最終チャンクが届いてからマイクを止める
+    setTimeout(stopViz, 400);
     setStatus('idle');
+    if (pendingSegs > 0) {
+      $('slabel').textContent = '変換中…';
+      $('ssub').textContent = '残りの音声をWhisperで変換しています';
+    }
+    saveState();
   }
 
   // ── Buttons ────────────────────────────
@@ -583,9 +924,14 @@
     if (!isRec) return;
     isPaused = !isPaused;
     if (isPaused) {
+      clearTimeout(segmentTimer);
+      if (segmentRec && segmentRec.state === 'recording') { try { segmentRec.stop(); } catch(_) {} }
+      if (archiveRec && archiveRec.state === 'recording') { try { archiveRec.pause(); } catch(_) {} }
       rec.stop();
       setStatus('paused');
     } else {
+      if (archiveRec && archiveRec.state === 'paused') { try { archiveRec.resume(); } catch(_) {} }
+      if (whisperOn()) startSegment();
       try { rec.start(); } catch(_) {}
       setStatus('rec');
       drawBars();
@@ -595,13 +941,18 @@
   $('btn-clear').addEventListener('click', () => {
     if (!confirm('文字起こしをクリアしますか？')) return;
     finalText = '';
-    $('transcript').innerHTML = '';
+    whisperText = '';
+    lastFinal = ''; lastFinalAt = 0;
+    renderTranscript('');
+    renderWhisper();
+    saveState();
     $('btn-clear').disabled = true;
   });
 
   $('btn-copy').addEventListener('click', () => {
-    if (!finalText) return;
-    navigator.clipboard.writeText(finalText).then(() => {
+    const text = whisperText || finalText;
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
       const b = $('btn-copy');
       const orig = b.textContent;
       b.textContent = '✓ コピー完了';
@@ -609,7 +960,7 @@
     }).catch(() => {
       // fallback
       const el = document.createElement('textarea');
-      el.value = finalText;
+      el.value = text;
       document.body.appendChild(el);
       el.select();
       document.execCommand('copy');
@@ -623,11 +974,13 @@
       document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       lang = btn.dataset.lang;
+      saveState();
     });
   });
 
   window.addEventListener('load', () => {
     buildBars();
+    restoreState();
   });
 </script>
 </body>
